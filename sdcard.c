@@ -35,6 +35,8 @@
 
 // Variables
 static FATFS fs;
+extern volatile unsigned long g_ulTimeStamp;
+unsigned long g_ulIdleTimeout = 0;
 
 
 

@@ -16,7 +16,7 @@
 #include "driverlib/rom.h"
 
 // Local Includes
-#include "inits.h"
+#include "misc.h"
 
 
 void init_gpio(void) {
@@ -28,7 +28,7 @@ void init_gpio(void) {
 	ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
 	ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
 
-	// Enable NMI pins (PD7 + PF0)
+	// Enable NMI pins for GPIO usage (PD7 + PF0)
 	HWREG(GPIO_PORTD_BASE + 0x520) = 0x4C4F434B;
 	HWREG(GPIO_PORTF_BASE + 0x520) = 0x4C4F434B;
 	HWREG(GPIO_PORTD_BASE + 0x524) = 0x000000FF;

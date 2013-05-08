@@ -16,9 +16,10 @@
 #include <stdint.h>
 
 // Local Includes
-#include "inits.h"
+#include "misc.h"
 #include "sdcard.h"
 #include "uart.h"
+#include "dac.h"
 
 // Definitions
 #define PKT_SIZE		441
@@ -78,6 +79,7 @@ void main(void) {
 	// Initialise ADC
 
 	// Initialise DAC
+	init_dac();
 
 	// Initialise SD Card
 	init_sdcard();
@@ -116,4 +118,12 @@ void SomeTimerHandler(void) {
 	}
 
 
+}
+
+void timer0_int_handler(void) {
+	// PLACEHOLDER
+}
+
+void timer1_int_handler(void) {
+	// PLACEHOLDER
 }

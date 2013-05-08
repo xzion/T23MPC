@@ -1,0 +1,6 @@
+Team 23 firmware
+
+Notes for later:
+- might be able to get other ssi pins working with clock speeds and base enable
+	- SSIConfigSetExpClk
+	- SSIEnable
