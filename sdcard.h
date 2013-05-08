@@ -10,10 +10,16 @@
 
 #include "third_party/fatfs/src/ff.h"
 
+/* Configure_Playback
+ *
+ * Initialises playback variables from cfg.dat on the SD
+ * This includes loop intervals, latch/hold status, FX knobs and tempo
+ */
+extern void configure_playback(void);
 extern void init_sdcard(void);
-extern void sdcard_openFile(FIL * file);
+extern void sdcard_openFile(FIL * file, int ID);
 extern char sdcard_readByte(FIL * file);
-extern void sdcard_readPacket(FIL * file, uint16_t * pktPtr, uint16_t pktLen);
+extern uint8_t sdcard_readPacket(FIL * file, uint8_t buttonNumber, uint16_t * pktPtr, uint16_t pktLen);
 extern void sdcard_closeFile(FIL * file);
 
 #endif /* SDCARD_H_ */

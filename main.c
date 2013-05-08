@@ -24,7 +24,7 @@
 #include "dac.h"
 
 // Definitions
-#define PKT_SIZE		441
+
 
 // Prototypes
 void SomeTimerHandler(void);
@@ -115,24 +115,23 @@ void main(void) {
 }
 
 void SomeTimerHandler(void) {
-	int i;
-	uint16_t pkt1[PKT_SIZE];
-	FIL testFile;
-
-	// Initialise packet array to 0
-	for (i = 0; i < PKT_SIZE; i++)
-	{
-		pkt1[i] = 0;
-	}
-
-	sdcard_openFile(&testFile);
-	sdcard_readPacket(&testFile, &pkt1[0], PKT_SIZE);
-	sdcard_closeFile(&testFile);
-
-	for (i = 0; i < 10; i++)
-	{
-		UARTprintf("%d - 0x%x\n", i, pkt1[(PKT_SIZE-1)-i]);
-	}
-
+//	int i;
+//	uint16_t pkt1[PKT_SIZE];
+//	FIL testFile;
+//
+//	// Initialise packet array to 0
+//	for (i = 0; i < PKT_SIZE; i++)
+//	{
+//		pkt1[i] = 0;
+//	}
+//
+//	sdcard_openFile(&testFile);
+//	sdcard_readPacket(&testFile, &pkt1[0], PKT_SIZE);
+//	sdcard_closeFile(&testFile);
+//
+//	for (i = 0; i < 10; i++)
+//	{
+//		UARTprintf("%d - 0x%x\n", i, pkt1[(PKT_SIZE-1)-i]);
+//	}
 
 }

@@ -11,12 +11,6 @@
 #ifndef TIMERS_H_
 #define TIMERS_H_
 
-/* Init_Playback
- *
- * Initialises playback variables from cfg.dat on the SD
- * This includes loop intervals, latch/hold status, FX knobs and tempo
- */
-extern void init_playback(void);
 
 /* Init_Timers
  *
@@ -28,5 +22,7 @@ extern void init_timers(void);
 extern void timer0_int_handler(void);
 
 extern void timer1_int_handler(void);
+
+extern void timer2_int_handler(void);
 
 #endif /* TIMERS_H_ */
