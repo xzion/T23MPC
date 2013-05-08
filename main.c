@@ -10,13 +10,15 @@
 // Library Includes
 #include "inc/hw_ints.h"
 #include "inc/hw_types.h"
+#include "inc/hw_memmap.h"
+#include "inc/hw_gpio.h"
 #include "driverlib/rom.h"
 #include "driverlib/sysctl.h"
 #include "third_party/fatfs/src/diskio.h"
 #include <stdint.h>
 
 // Local Includes
-#include "misc.h"
+#include "timers.h"
 #include "sdcard.h"
 #include "uart.h"
 #include "dac.h"
@@ -26,7 +28,6 @@
 
 // Prototypes
 void SomeTimerHandler(void);
-
 
 
 // Global Variables
@@ -69,10 +70,23 @@ void main(void) {
 //	ROM_FPUEnable();
 //	ROM_FPUStackingDisable();
 
-	// Initialise GPIO
-	init_gpio();
+	// Initialise GPIO - All ports enabled
+	ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
+	ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
+	ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOC);
+	ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
+	ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
+	ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
 
-	// Initialise GPIO Expander
+	// Unlock NMI pins for GPIO usage (PD7 + PF0)
+	HWREG(GPIO_PORTD_BASE + 0x520) = 0x4C4F434B;
+	HWREG(GPIO_PORTF_BASE + 0x520) = 0x4C4F434B;
+	HWREG(GPIO_PORTD_BASE + 0x524) = 0x000000FF;
+	HWREG(GPIO_PORTF_BASE + 0x524) = 0x000000FF;
+	HWREG(GPIO_PORTD_BASE + 0x520) = 0x00000000;
+	HWREG(GPIO_PORTF_BASE + 0x520) = 0x00000000;
+
+	// Initialise GPIO Expander (probably not happening)
 
 	// Initialise Buttons
 
@@ -86,6 +100,9 @@ void main(void) {
 
 	// Initialise UART for debugging
 	init_uart();
+
+	// Initialise Timers
+	init_timers();
 
 
 	SomeTimerHandler();
@@ -118,12 +135,4 @@ void SomeTimerHandler(void) {
 	}
 
 
-}
-
-void timer0_int_handler(void) {
-	// PLACEHOLDER
-}
-
-void timer1_int_handler(void) {
-	// PLACEHOLDER
 }

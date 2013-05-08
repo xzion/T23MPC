@@ -8,14 +8,8 @@
  *
  */
 
-#ifndef INITS_H_
-#define INITS_H_
-
-/* Init_GPIO
- *
- * Initialises the device GPIO Headers
- */
-extern void init_gpio(void);
+#ifndef TIMERS_H_
+#define TIMERS_H_
 
 /* Init_Playback
  *
@@ -24,4 +18,15 @@ extern void init_gpio(void);
  */
 extern void init_playback(void);
 
-#endif /* INITS_H_ */
+/* Init_Timers
+ *
+ * Initialises 2 timers used for DAC output (audio playback)
+ * and updating the output buffer.
+ */
+extern void init_timers(void);
+
+extern void timer0_int_handler(void);
+
+extern void timer1_int_handler(void);
+
+#endif /* TIMERS_H_ */
