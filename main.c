@@ -13,9 +13,20 @@
 #include "driverlib/rom.h"
 #include "driverlib/sysctl.h"
 #include "third_party/fatfs/src/diskio.h"
+#include <stdint.h>
 
 // Local Includes
 #include "inits.h"
+#include "sdcard.h"
+#include "uart.h"
+
+// Definitions
+#define PKT_SIZE		441
+
+// Prototypes
+void SomeTimerHandler(void);
+
+
 
 // Global Variables
 volatile unsigned long g_ulTimeStamp = 0; // Time since boot in 10ms increments
@@ -58,6 +69,7 @@ void main(void) {
 //	ROM_FPUStackingDisable();
 
 	// Initialise GPIO
+	init_gpio();
 
 	// Initialise GPIO Expander
 
@@ -68,19 +80,40 @@ void main(void) {
 	// Initialise DAC
 
 	// Initialise SD Card
+	init_sdcard();
 
-#if DEBUG
 	// Initialise UART for debugging
+	init_uart();
 
-#endif
 
-	/* if (GPIO Mode Pin = MPC Mode) {
-	 * 	// Initialise MPC variables (logging, pressed, latchhold)
-	 * }
-	 */
+	SomeTimerHandler();
+
 
 
 	for(;;) {
 		// Endless Loop
 	}
+}
+
+void SomeTimerHandler(void) {
+	int i;
+	uint16_t pkt1[PKT_SIZE];
+	FIL testFile;
+
+	// Initialise packet array to 0
+	for (i = 0; i < PKT_SIZE; i++)
+	{
+		pkt1[i] = 0;
+	}
+
+	sdcard_openFile(&testFile);
+	sdcard_readPacket(&testFile, &pkt1[0], PKT_SIZE);
+	sdcard_closeFile(&testFile);
+
+	for (i = 0; i < 10; i++)
+	{
+		UARTprintf("%d - 0x%x\n", i, pkt1[(PKT_SIZE-1)-i]);
+	}
+
+
 }
