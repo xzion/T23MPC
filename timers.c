@@ -26,18 +26,18 @@
 #include "dac.h"
 
 // Definitions
-#define BUFFERUPDATE_FREQ			100
-#define PKT_SIZE					44100/BUFFERUPDATE_FREQ
-#define TEMPO_FREQUENCY				(tempo*128)/60
+#define TEMPO_FREQUENCY				(int)((tempo*128)/60)
+#define BUFFER_SIZE					PKT_SIZE*2
 
 // Variables
 extern volatile unsigned long g_ulTimeStamp;
-volatile uint8_t ulTempoTimestamp = 0;
+uint16_t ulTempoTimestamp = 0;
 
-static uint16_t oBuff[PKT_SIZE*3];
+static uint16_t oBuff[BUFFER_SIZE];
 uint16_t * startPtr = &oBuff[0];
 uint16_t * readPtr = &oBuff[0];
 uint16_t * writePtr = &oBuff[0];
+uint8_t readPoint = 0;
 
 extern uint32_t whereLast[16];
 extern uint16_t pressed;
@@ -52,18 +52,19 @@ extern uint8_t tempo;
 uint8_t testTimer0 = 1;
 uint8_t testTimer1 = 1;
 uint8_t testTimer2 = 1;
+uint16_t testSample = 0;
 
 
 
 
 void init_timers(void) {
-	unsigned long ulDACPeriod, ulPktPeriod;
+	unsigned long ulDACPeriod, ulPktPeriod, ulTempoPeriod;
 
 	// Initialise the output buffer
 	int i;
-	for (i = 0; i < PKT_SIZE*3; i++)
+	for (i = 0; i < BUFFER_SIZE; i++)
 	{
-		oBuff[i] = 0;
+		oBuff[i] = 0x8000;
 	}
 	// Initialise pointer positions
 	for (i = 0; i < 16; i++)
@@ -75,8 +76,9 @@ void init_timers(void) {
 	ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
 	ROM_TimerConfigure(TIMER0_BASE, TIMER_CFG_PERIODIC);
 	ulDACPeriod = (ROM_SysCtlClockGet() / 44100); // 44.1 kHz for DAC samples
-	ROM_TimerLoadSet(TIMER0_BASE, TIMER_A, ulDACPeriod - 1);
+	ROM_TimerLoadSet(TIMER0_BASE, TIMER_A, ulDACPeriod);
 	// Set up interrupt
+	ROM_IntPrioritySet(INT_TIMER0A, 0x00);
 	ROM_IntEnable(INT_TIMER0A);
 	ROM_TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
 	// Enable Timer
@@ -88,6 +90,7 @@ void init_timers(void) {
 	ulPktPeriod = (ROM_SysCtlClockGet() / BUFFERUPDATE_FREQ); // 100 Hz for DAC samples
 	ROM_TimerLoadSet(TIMER1_BASE, TIMER_A, ulPktPeriod);
 	// Set up interrupt
+	ROM_IntPrioritySet(INT_TIMER1A, 0x20);
 	ROM_IntEnable(INT_TIMER1A);
 	ROM_TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
 	// Enable Timer
@@ -96,9 +99,10 @@ void init_timers(void) {
 	// Configure the Tempo timer - Timer 2
 	ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER2);
 	ROM_TimerConfigure(TIMER2_BASE, TIMER_CFG_PERIODIC);
-	ulPktPeriod = (ROM_SysCtlClockGet() / TEMPO_FREQUENCY);
-	ROM_TimerLoadSet(TIMER2_BASE, TIMER_A, ulPktPeriod);
+	ulTempoPeriod = (ROM_SysCtlClockGet() / TEMPO_FREQUENCY);
+	ROM_TimerLoadSet(TIMER2_BASE, TIMER_A, ulTempoPeriod);
 	// Set up interrupt
+	ROM_IntPrioritySet(INT_TIMER2A, 0x40);
 	ROM_IntEnable(INT_TIMER2A);
 	ROM_TimerIntEnable(TIMER2_BASE, TIMER_TIMA_TIMEOUT);
 	// Enable Timer
@@ -114,145 +118,159 @@ void timer0_int_handler(void) {
 	dac_write(*readPtr);
 	readPtr++;
 
-	if (readPtr == startPtr + PKT_SIZE*3)
+	if (readPtr == startPtr + BUFFER_SIZE)
 	{
 		readPtr = startPtr;
-		//UARTprintf("readPtr reset\n");
 	}
 
-	// Debugging
-	if (g_ulTimeStamp % 100 == 0)
-	{
-		if (testTimer0)
-		{
-			UARTprintf("Timer 0 is firing\n");
-			testTimer0 = 0;
-		}
-	}
-	else
-	{
-		testTimer0 = 1;
-	}
+//	// Debugging
+//	if (g_ulTimeStamp % 100 == 0)
+//	{
+//		if (testTimer0)
+//		{
+//			UARTprintf("Timer 0 is firing\n");
+//			testTimer0 = 0;
+//		}
+//	}
+//	else
+//	{
+//		testTimer0 = 1;
+//	}
 }
 
 void timer1_int_handler(void) {
 	// Clear the interrupt flag
 	ROM_TimerIntClear(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
 
-	int i;
-	uint16_t pkt1[PKT_SIZE];
-	uint16_t pkt2[PKT_SIZE];
-	uint16_t finalPkt[PKT_SIZE];
+	uint8_t doLoad = 0;
 
-	// Initialise output packets
-	for (i = 0; i < PKT_SIZE; i++)
+	if ((readPtr < (startPtr+PKT_SIZE)) && readPoint == 0)
 	{
-		pkt1[i] = 0;
-		pkt2[i] = 0;
+		doLoad = 1;
+		readPoint = 1;
+	}
+	else if ((readPtr >= (startPtr+PKT_SIZE)) && readPoint == 1)
+	{
+		writePtr = startPtr;
+		doLoad = 1;
+		readPoint = 0;
 	}
 
-	// Retrieve the current 2 audio streams
-	for (i = 0; i < 16; i++)
+	if (doLoad)
 	{
-		uint8_t bitMask = 0 | (1 << i);
-		uint8_t fileEnded = 0;
-		FIL file;
-		sdcard_openFile(&file, i);
+		int i;
+		uint16_t pkt1[PKT_SIZE];
+		uint16_t pkt2[PKT_SIZE];
+		uint16_t finalPkt[PKT_SIZE];
 
-		if (!!(pressed & bitMask))
+		// Initialise output packets
+		for (i = 0; i < PKT_SIZE; i++)
 		{
-			// Button is pressed
-			// NEED ORDER CHECK ON ALL OF THESE
-//			FIL file;
-//			sdcard_openFile(&file, i);
-			sdcard_readPacket(&file, i, &finalPkt[0], PKT_SIZE);
-//			sdcard_closeFile(&file);
-			playing = playing | bitMask;
-			UARTprintf("READING!, playing = 0x%X\n", playing);
+			pkt1[i] = 0x8000;
+			pkt2[i] = 0x8000;
+			finalPkt[i] = 0x8000;
 		}
-		else
+
+		// Retrieve the current 2 audio streams
+		for (i = 0; i < 16; i++)
 		{
-			//UARTprintf("unpressed, playing = 0x%x, bitmask = 0x%x, res = 0x%x\n", playing, bitMask, (playing & ~bitMask));
-			// Button is not pressed, but may still be playing
-			if (!!(playing & bitMask) && !!(latchHold & bitMask))
+			uint16_t bitMask = 0 | (1 << i);
+			uint8_t fileEnded = 0;
+
+			if (!!(pressed & bitMask))
 			{
-				// File is latched, need to finish playback
-//				FIL file;
-//				sdcard_openFile(&file, i);
-				fileEnded = sdcard_readPacket(&file, i, &finalPkt[0], PKT_SIZE);
-//				sdcard_closeFile(&file);
-				UARTprintf("FILLING!, WL = %d, playing = 0x%X, fe = %d\n", whereLast[i], playing, fileEnded);
-				if (fileEnded)
-				{
-					// File has completed playback, stop it playing next time!
-					// Should make sure this bitbashing checks out
-					playing = playing & ~bitMask;
-					whereLast[i] = 0;
-
-					// Debugging
-					UARTprintf("File %d ended!\n", i);
-
-				}
-				else
-				{
-					playing = playing | bitMask;
-				}
+				// Button is pressed
+				// NEED ORDER CHECK ON ALL OF THESE
+				FIL file;
+				sdcard_openFile(&file, i);
+				sdcard_readPacket(&file, i, &finalPkt[0]);
+				sdcard_closeFile(&file);
+				playing = playing | bitMask;
+				//UARTprintf("READING!, playing = 0x%X\n", playing);
 			}
 			else
 			{
-				// It's not playing
-				playing = playing & ~bitMask;
+				// Button is not pressed, but may still be playing
+				if (!!(playing & bitMask) && !!(latchHold & bitMask))
+				{
+					// File is latched, need to finish playback
+					FIL file;
+					sdcard_openFile(&file, i);
+					fileEnded = sdcard_readPacket(&file, i, &finalPkt[0]);
+					sdcard_closeFile(&file);
+					//UARTprintf("FILLING!, WL = %d, playing = 0x%X, fe = %d\n", whereLast[i], playing, fileEnded);
+					//UARTprintf("FILLING, read=%d, write=%d, ts=%d\n", (readPtr - startPtr), (writePtr - startPtr), g_ulTimeStamp);
+					if (fileEnded)
+					{
+						// File has completed playback, stop it playing next time!
+						// Should make sure this bitbashing checks out
+						playing = playing & ~bitMask;
+						whereLast[i] = 0;
+
+						// Debugging
+						//UARTprintf("File %d ended!\n", i);
+
+					}
+					else
+					{
+						playing = playing | bitMask;
+					}
+				}
+				else
+				{
+					// It's not playing
+					playing = playing & ~bitMask;
+				}
 			}
 		}
-		sdcard_closeFile(&file);
-	}
 
-	// DEBUGGING - unpress first button
-	pressed = 0x00;
+		// DEBUGGING - unpress first button
+		pressed = 0x00;
+		//playing = 0x00;
 
 
-	// At this point, we have 2 arrays of the most up to date audio streams
-	// Need to apply convolution, then FX
-	// NOT DONE YET, OBVIOUSLY. ONLY HAVE 1 PKT AT THE MOMENT
+		// At this point, we have 2 arrays of the most up to date audio streams
+		// Need to apply convolution, then FX
+		// NOT DONE YET, OBVIOUSLY. ONLY HAVE 1 PKT AT THE MOMENT
 
-	for (i = 0; i < PKT_SIZE; i++)
-	{
-		// Shift into the output buffer
-		*writePtr = finalPkt[i];
-		writePtr++;
-		if (writePtr == startPtr + PKT_SIZE*3)
+		// Load into the buffer
+		for (i = 0; i < PKT_SIZE; i++)
 		{
-			writePtr = startPtr;
-			//UARTprintf("readPtr reset\n");
+			*writePtr = finalPkt[i];
+			writePtr++;
 		}
 	}
 
 
-	// Debugging
-	if (g_ulTimeStamp % 100 == 0)
-	{
-		if (testTimer1)
-		{
-			UARTprintf("Timer 1 is firing\n");
-			testTimer1 = 0;
-		}
-	}
-	else
-	{
-		testTimer1 = 1;
-	}
+
+
+//	// Debugging
+//	if (g_ulTimeStamp % 100 == 0)
+//	{
+//		if (testTimer1)
+//		{
+//			UARTprintf("Timer 1 is firing\n");
+//			testTimer1 = 0;
+//			// DEBUGGING
+//			//playing = 0x01;
+//		}
+//	}
+//	else
+//	{
+//		testTimer1 = 1;
+//	}
 }
 
 void timer2_int_handler(void) {
 	// Clear the interrupt flag
 	ROM_TimerIntClear(TIMER2_BASE, TIMER_TIMA_TIMEOUT);
 
-	ulTempoTimestamp++;
-	ulTempoTimestamp = ulTempoTimestamp % 128;
+	ulTempoTimestamp = (ulTempoTimestamp+1) % 128;
 
 	if (ulTempoTimestamp == 0)
 	{
 		// TOGGLE THE TEMPO LED ON
+		UARTprintf("BEAT\n");
 
 	}
 	else if (ulTempoTimestamp == 16)
@@ -261,13 +279,20 @@ void timer2_int_handler(void) {
 
 	}
 
+
+
+
 	// Debugging
 	if (g_ulTimeStamp % 100 == 0)
 	{
 		if (testTimer2)
 		{
-			UARTprintf("Timer 2 is firing\n");
 			testTimer2 = 0;
+			pressed = (1 << testSample);
+			//pressed = 0x2000;
+			testSample = (testSample+1)%16;
+			UARTprintf("Playing Sample %d\n", testSample, pressed, ulTempoTimestamp);
+			//playing = 0x00;
 		}
 	}
 	else

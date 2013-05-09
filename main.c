@@ -15,6 +15,7 @@
 #include "driverlib/rom.h"
 #include "driverlib/sysctl.h"
 #include "third_party/fatfs/src/diskio.h"
+#include "driverlib/gpio.h"
 #include <stdint.h>
 
 // Local Includes
@@ -24,10 +25,6 @@
 #include "dac.h"
 
 // Definitions
-
-
-// Prototypes
-void SomeTimerHandler(void);
 
 
 // Global Variables
@@ -105,33 +102,9 @@ void main(void) {
 	init_timers();
 
 
-	SomeTimerHandler();
-
 
 
 	for(;;) {
 		// Endless Loop
 	}
-}
-
-void SomeTimerHandler(void) {
-//	int i;
-//	uint16_t pkt1[PKT_SIZE];
-//	FIL testFile;
-//
-//	// Initialise packet array to 0
-//	for (i = 0; i < PKT_SIZE; i++)
-//	{
-//		pkt1[i] = 0;
-//	}
-//
-//	sdcard_openFile(&testFile);
-//	sdcard_readPacket(&testFile, &pkt1[0], PKT_SIZE);
-//	sdcard_closeFile(&testFile);
-//
-//	for (i = 0; i < 10; i++)
-//	{
-//		UARTprintf("%d - 0x%x\n", i, pkt1[(PKT_SIZE-1)-i]);
-//	}
-
 }

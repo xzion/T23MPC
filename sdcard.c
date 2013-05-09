@@ -54,10 +54,10 @@ uint8_t tempo;
 void configure_playback(void) {
 	int i;
 	// Nothing here yet
-	pressed = 0x01; // FIRST BUTTON PRESSED, FOR DEBUGGING
-	playing = 0x00;
-	latchHold = 0x01;
-	looping = 0x00;
+	pressed = 0x0000; // FIRST BUTTON PRESSED, FOR DEBUGGING
+	playing = 0x0000;
+	latchHold = 0xFFFF;
+	looping = 0x0000;
 	FX1mode = 0x00;
 	FX2mode = 0x01;
 	tempo = 0x80;
@@ -125,7 +125,7 @@ char sdcard_readByte(FIL * file) {
 	return retChar;
 }
 
-uint8_t sdcard_readPacket(FIL * file, uint8_t buttonNumber, uint16_t * pktPtr, uint16_t pktLen) {
+uint8_t sdcard_readPacket(FIL * file, uint8_t buttonNumber, uint16_t * pktPtr) {
 	uint8_t fileEnded = 0;
 	int i;
 	if (whereLast[buttonNumber] < file->fsize)
@@ -138,44 +138,84 @@ uint8_t sdcard_readPacket(FIL * file, uint8_t buttonNumber, uint16_t * pktPtr, u
 			UARTprintf("f_lseek result: %d\r\n", fres);
 		}
 
-		for (i = 0; i < pktLen; i++)
-		{
-			if ((whereLast[buttonNumber] + 2) < file->fsize)
-			{
-				uint16_t bytesRead = 0;
-				uint16_t readSample;
-				uint8_t arr[2];
+		// Check if we can read the entire sample at once!
+		// NB: pktLen needs to be less than 512 i think?
 
-				FRESULT fres = f_read(file, &arr[0], 2, &bytesRead);
-				if (fres != (FRESULT)FR_OK)
-				{
-					// FatFS error
-					UARTprintf("f_read result: %d\r\n", fres);
-					*pktPtr = 0;
-					pktPtr++;
-				}
-				else if (bytesRead != 2)
-				{
-					// Incorrect read, possible EOF
-					UARTprintf("f_read did not read the correct number of bytes\r\n", fres);
-					*pktPtr = 0;
-					pktPtr++;
-				}
-				else
-				{
-					// OK!
-					readSample = arr[1] | (arr[0] << 8);
-					*pktPtr = readSample;
-					pktPtr++;
-					whereLast[buttonNumber] += 2;
-				}
-			}
-			else
+		if ((whereLast[buttonNumber] + PKT_SIZE*2) < file->fsize)
+		{
+			// We can read the whole packet!
+			uint16_t bytesRead = 0;
+			uint8_t readArray[PKT_SIZE*2];
+
+			FRESULT fres = f_read(file, &readArray[0], PKT_SIZE*2, &bytesRead);
+			if (fres != (FRESULT)FR_OK)
 			{
-				fileEnded = 1;
-				*pktPtr = 0;
-				pktPtr++;
+				// FatFS error
+				UARTprintf("f_read result: %d\r\n", fres);
+				return 1;
 			}
+			else if (bytesRead != PKT_SIZE*2)
+			{
+				// Incorrect read, possible EOF
+				UARTprintf("f_read did not read the correct number of bytes, read = %d, wanted = %d\n", bytesRead, PKT_SIZE*2);
+				return 1;
+			}
+
+			// We've got the whole buffer OK, process it
+			for (i = 0; i < PKT_SIZE; i++)
+			{
+				uint16_t readSample = readArray[2*i+1] | (readArray[2*i] << 8);
+				*pktPtr = readSample;
+				pktPtr++;
+				whereLast[buttonNumber] += 2;
+//				if (i > PKT_SIZE-30)
+//				{
+//					UARTprintf("%d - 0x%X\n", i, readSample);
+//				}
+
+			}
+
+		}
+		else
+		{
+			// Only a small portion of the sample is left
+			uint32_t remainingShorts = PKT_SIZE - ((whereLast[buttonNumber] + PKT_SIZE*2) - file->fsize)/2;
+
+			// Read what's left
+			uint16_t bytesRead = 0;
+			uint8_t readArray[PKT_SIZE*2];
+
+			FRESULT fres = f_read(file, &readArray[0], remainingShorts*2, &bytesRead);
+			if (fres != (FRESULT)FR_OK)
+			{
+				// FatFS error
+				UARTprintf("f_read result: %d\r\n", fres);
+				return 1;
+			}
+			else if (bytesRead != remainingShorts*2)
+			{
+				// Incorrect read, possible EOF
+				UARTprintf("f_read remaining did not read the correct number of bytes, read = %d, wanted = %d\n", bytesRead, remainingShorts*2);
+				return 1;
+			}
+
+			// Process the data for the output buffer
+			for (i = 0; i < remainingShorts; i++)
+			{
+				uint16_t readSample = readArray[2*i+1] | (readArray[2*i] << 8);
+				*pktPtr = readSample;
+				pktPtr++;
+				whereLast[buttonNumber] += 2;
+			}
+			// Fill the rest with zeros
+			for (; i < PKT_SIZE; i++)
+			{
+				*pktPtr = 0x8000;
+				pktPtr++;
+				whereLast[buttonNumber] += 2;
+			}
+			// Signal the the file is finished
+			fileEnded = 1;
 		}
 	}
 	else
@@ -184,6 +224,8 @@ uint8_t sdcard_readPacket(FIL * file, uint8_t buttonNumber, uint16_t * pktPtr, u
 		// Someone is probably holding the button down
 		fileEnded = 1;
 	}
+
+
 	return fileEnded;
 }
 

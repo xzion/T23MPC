@@ -33,20 +33,21 @@ void init_dac(void) {
 	ROM_GPIOPinConfigure(GPIO_PB7_SSI2TX);
 	ROM_GPIOPinTypeSSI(GPIO_PORTB_BASE, GPIO_PIN_7);
 	// Clock speed for DAC
-	ROM_SSIConfigSetExpClk(SSI2_BASE, ROM_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, 1000000, 16);
+	ROM_SSIConfigSetExpClk(SSI2_BASE, ROM_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, 20000000, 16);
 	// Enable SSI
 	ROM_SSIEnable(SSI2_BASE);
 }
 
 void dac_write(uint16_t sample) {
 
+	while(ROM_SSIBusy(SSI2_BASE));
+
 	// Construct the correct output bits
 	// 0x3000 = command data
 	// Remaining 12 bits = audio data
 	// Will be update to 16 bit
-	uint16_t dacOutput = (sample & 0x0FFF) | 0x3000;
+	uint16_t dacOutput = ((sample >> 4) & 0x0FFF) | 0x3000; // CHECK THIS
 
 	ROM_SSIDataPut(SSI2_BASE, dacOutput);
 
-	while(ROM_SSIBusy(SSI2_BASE));
 }
