@@ -57,7 +57,7 @@ uint16_t testSample = 0;
 
 
 
-void init_timers(void) {
+void timers_init(void) {
 	unsigned long ulDACPeriod, ulPktPeriod, ulTempoPeriod;
 
 	// Initialise the output buffer
@@ -71,6 +71,9 @@ void init_timers(void) {
 	{
 		whereLast[i] = 0;
 	}
+
+	// Configure the Tempo LED
+
 
 	// Configure the DAC output timer - Timer 0
 	ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);

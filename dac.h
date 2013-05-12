@@ -8,7 +8,7 @@
 #ifndef DAC_H_
 #define DAC_H_
 
-extern void init_dac(void);
+extern void dac_init(void);
 extern void dac_write(uint16_t sample);
 
 #endif /* DAC_H_ */

@@ -74,7 +74,7 @@ void configure_playback(void) {
  *
  * Initialise FatFS and SD Card
  */
-void init_sdcard(void) {
+void sdcard_init(void) {
 	// Enable SSI0 for the SD Card
 	ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI0);
 	// Configure Pins

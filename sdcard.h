@@ -19,7 +19,7 @@
  * This includes loop intervals, latch/hold status, FX knobs and tempo
  */
 extern void configure_playback(void);
-extern void init_sdcard(void);
+extern void sdcard_init(void);
 extern void sdcard_openFile(FIL * file, int ID);
 extern char sdcard_readByte(FIL * file);
 extern uint8_t sdcard_readPacket(FIL * file, uint8_t buttonNumber, uint16_t * pktPtr);

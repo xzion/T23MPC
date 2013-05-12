@@ -15,6 +15,6 @@
  * Default settings 115200 baud, 8-N-1
  *
  */
-extern void init_uart(void);
+extern void uart_init(void);
 
 #endif /* UART_H_ */

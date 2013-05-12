@@ -23,6 +23,7 @@
 #include "sdcard.h"
 #include "uart.h"
 #include "dac.h"
+#include "btn.h"
 
 // Definitions
 
@@ -86,20 +87,21 @@ void main(void) {
 	// Initialise GPIO Expander (probably not happening)
 
 	// Initialise Buttons
+	btn_init();
 
 	// Initialise ADC
 
 	// Initialise DAC
-	init_dac();
+	dac_init();
 
 	// Initialise SD Card
-	init_sdcard();
+	sdcard_init();
 
 	// Initialise UART for debugging
-	init_uart();
+	uart_init();
 
 	// Initialise Timers
-	init_timers();
+	timers_init();
 
 
 

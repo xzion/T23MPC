@@ -17,7 +17,7 @@
  * Initialises 2 timers used for DAC output (audio playback)
  * and updating the output buffer.
  */
-extern void init_timers(void);
+extern void timers_init(void);
 
 extern void timer0_int_handler(void);
 

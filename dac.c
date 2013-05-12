@@ -22,7 +22,7 @@
 // Local Includes
 #include "dac.h"
 
-void init_dac(void) {
+void dac_init(void) {
 	// Enable SSI0 for the SD Card
 	ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI2);
 	// Configure Pins
