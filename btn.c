@@ -21,17 +21,18 @@
 
 // Local Includes
 #include "btn.h"
+#include "uart.h"
 
 // Definitions
-#define BTN_ROW1_RD			GPIO_PORTF_BASE, GPIO_PIN_0
-#define BTN_ROW2_RD			GPIO_PORTF_BASE, GPIO_PIN_1
-#define BTN_ROW3_RD			GPIO_PORTF_BASE, GPIO_PIN_2
-#define BTN_ROW4_RD			GPIO_PORTF_BASE, GPIO_PIN_3
+#define BTN_ROW1_RD			GPIO_PORTE_BASE, GPIO_PIN_0
+#define BTN_ROW2_RD			GPIO_PORTD_BASE, GPIO_PIN_1
+#define BTN_ROW3_RD			GPIO_PORTD_BASE, GPIO_PIN_2
+#define BTN_ROW4_RD			GPIO_PORTD_BASE, GPIO_PIN_3
 
-#define BTN_COL1_IN			GPIO_PORTD_BASE, GPIO_PIN_0
-#define BTN_COL2_IN			GPIO_PORTD_BASE, GPIO_PIN_1
-#define BTN_COL3_IN			GPIO_PORTD_BASE, GPIO_PIN_2
-#define BTN_COL4_IN			GPIO_PORTD_BASE, GPIO_PIN_3
+#define BTN_COL1_IN			GPIO_PORTF_BASE, GPIO_PIN_0
+#define BTN_COL2_IN			GPIO_PORTF_BASE, GPIO_PIN_1
+#define BTN_COL3_IN			GPIO_PORTF_BASE, GPIO_PIN_2
+#define BTN_COL4_IN			GPIO_PORTF_BASE, GPIO_PIN_3
 
 #define LED_ROW1_RED		GPIO_PORTA_BASE, GPIO_PIN_6
 #define LED_ROW2_RED		GPIO_PORTB_BASE, GPIO_PIN_0
@@ -53,7 +54,9 @@
 
 // Variables
 extern uint16_t pressed;
+extern uint16_t playing;
 uint8_t currentRow;
+uint8_t ledRow;
 uint8_t bounceStatus[4][4];
 uint8_t fnOn;
 
@@ -116,6 +119,8 @@ void btn_init(void) {
 	// Initialise variables
 	currentRow = 0;
 	fnOn = 0;
+	ledRow = 0;
+
 
 	// Set first button row up for reading
 	ROM_GPIOPinWrite(BTN_COL1_IN, 0xFF);
@@ -161,9 +166,13 @@ void btn_pollRow(void) {
 					pressed &= (1 << i);
 				}
 			}
+			if (pinStatus)
+			{
+				UARTprintf("PRESSED row: %d, col: %d\n", currentRow, i);
+			}
 		}
 
-		update_LEDs();
+		//update_LEDs();
 		currentRow++;
 		ROM_GPIOPinWrite(BTN_COL1_IN, 0x00);
 		ROM_GPIOPinWrite(BTN_COL2_IN, 0xFF);
@@ -186,14 +195,18 @@ void btn_pollRow(void) {
 					pressed &= (1 << i+4);
 				}
 			}
+			if (pinStatus)
+			{
+				UARTprintf("PRESSED row: %d, col: %d\n", currentRow, i);
+			}
 		}
 
-		update_LEDs();
+		//update_LEDs();
 		currentRow++;
 		ROM_GPIOPinWrite(BTN_COL2_IN, 0x00);
 		ROM_GPIOPinWrite(BTN_COL3_IN, 0xFF);
 	}
-	else if (currentRow == 1)
+	else if (currentRow == 2)
 	{
 		for (i = 0; i < 4; i++)
 		{
@@ -211,9 +224,13 @@ void btn_pollRow(void) {
 					pressed &= (1 << i+8);
 				}
 			}
+			if (pinStatus)
+			{
+				UARTprintf("PRESSED row: %d, col: %d\n", currentRow, i);
+			}
 		}
 
-		update_LEDs();
+		//update_LEDs();
 		currentRow++;
 		ROM_GPIOPinWrite(BTN_COL3_IN, 0x00);
 		ROM_GPIOPinWrite(BTN_COL4_IN, 0xFF);
@@ -236,9 +253,13 @@ void btn_pollRow(void) {
 					pressed &= (1 << i+12);
 				}
 			}
+			if (pinStatus)
+			{
+				UARTprintf("PRESSED row: %d, col: %d\n", currentRow, i);
+			}
 		}
 
-		update_LEDs();
+		//update_LEDs();
 		currentRow = 0;
 		ROM_GPIOPinWrite(BTN_COL4_IN, 0x00);
 		ROM_GPIOPinWrite(BTN_COL1_IN, 0xFF);
@@ -247,6 +268,12 @@ void btn_pollRow(void) {
 
 uint8_t debounce(uint8_t btnNum, uint8_t rawInput) {
 	bounceStatus[currentRow][btnNum] = (bounceStatus[currentRow][btnNum] << 1) | rawInput;
+
+	if(rawInput)
+	{
+		UARTprintf("SOMETHING IS HIGH %d %d\n", currentRow, btnNum);
+	}
+
 	if (bounceStatus[currentRow][btnNum] == 0x00)
 	{
 		return 0;
@@ -271,64 +298,64 @@ void update_LEDs(void) {
 	ROM_GPIOPinWrite(LED_COL3_GND, 0xFF);
 	ROM_GPIOPinWrite(LED_COL4_GND, 0xFF);
 
-	if (currentRow == 0)
+	if (ledRow == 0)
 	{
 		// Ground this line
 		ROM_GPIOPinWrite(LED_COL1_GND, 0x00);
 		if(fnOn)
 		{
 			// No super easy way to do this, gotta hardcode the shifts (or add a heap more defines)
-			ROM_GPIOPinWrite(LED_ROW1_BLUE, ((!!(pressed & 0x0001)) << 7));
-			ROM_GPIOPinWrite(LED_ROW2_BLUE, ((!!(pressed & 0x0002)) << 1));
-			ROM_GPIOPinWrite(LED_ROW3_BLUE, ((!!(pressed & 0x0004)) << 3));
-			ROM_GPIOPinWrite(LED_ROW4_BLUE, ((!!(pressed & 0x0008)) << 5));
+			ROM_GPIOPinWrite(LED_ROW1_BLUE, ((!!(playing & 0x0001)) << 7));
+			ROM_GPIOPinWrite(LED_ROW2_BLUE, ((!!(playing & 0x0002)) << 1));
+			ROM_GPIOPinWrite(LED_ROW3_BLUE, ((!!(playing & 0x0004)) << 3));
+			ROM_GPIOPinWrite(LED_ROW4_BLUE, ((!!(playing & 0x0008)) << 5));
 		}
 		else
 		{
-			ROM_GPIOPinWrite(LED_ROW1_RED, ((!!(pressed & 0x0001)) << 6));
-			ROM_GPIOPinWrite(LED_ROW2_RED, ((!!(pressed & 0x0002)) << 0));
-			ROM_GPIOPinWrite(LED_ROW3_RED, ((!!(pressed & 0x0004)) << 2));
-			ROM_GPIOPinWrite(LED_ROW4_RED, ((!!(pressed & 0x0008)) << 4));
+			ROM_GPIOPinWrite(LED_ROW1_RED, ((!!(playing & 0x0001)) << 6));
+			ROM_GPIOPinWrite(LED_ROW2_RED, ((!!(playing & 0x0002)) << 0));
+			ROM_GPIOPinWrite(LED_ROW3_RED, ((!!(playing & 0x0004)) << 2));
+			ROM_GPIOPinWrite(LED_ROW4_RED, ((!!(playing & 0x0008)) << 4));
 		}
 	}
-	else if (currentRow == 1)
+	else if (ledRow == 1)
 	{
 		// Ground this line
 		ROM_GPIOPinWrite(LED_COL2_GND, 0x00);
 		if(fnOn)
 		{
 			// No super easy way to do this, gotta hardcode the shifts (or add a heap more defines)
-			ROM_GPIOPinWrite(LED_ROW1_BLUE, ((!!(pressed & 0x0010)) << 7));
-			ROM_GPIOPinWrite(LED_ROW2_BLUE, ((!!(pressed & 0x0020)) << 1));
-			ROM_GPIOPinWrite(LED_ROW3_BLUE, ((!!(pressed & 0x0040)) << 3));
-			ROM_GPIOPinWrite(LED_ROW4_BLUE, ((!!(pressed & 0x0080)) << 5));
+			ROM_GPIOPinWrite(LED_ROW1_BLUE, ((!!(playing & 0x0010)) << 7));
+			ROM_GPIOPinWrite(LED_ROW2_BLUE, ((!!(playing & 0x0020)) << 1));
+			ROM_GPIOPinWrite(LED_ROW3_BLUE, ((!!(playing & 0x0040)) << 3));
+			ROM_GPIOPinWrite(LED_ROW4_BLUE, ((!!(playing & 0x0080)) << 5));
 		}
 		else
 		{
-			ROM_GPIOPinWrite(LED_ROW1_RED, ((!!(pressed & 0x0010)) << 6));
-			ROM_GPIOPinWrite(LED_ROW2_RED, ((!!(pressed & 0x0020)) << 0));
-			ROM_GPIOPinWrite(LED_ROW3_RED, ((!!(pressed & 0x0040)) << 2));
-			ROM_GPIOPinWrite(LED_ROW4_RED, ((!!(pressed & 0x0080)) << 4));
+			ROM_GPIOPinWrite(LED_ROW1_RED, ((!!(playing & 0x0010)) << 6));
+			ROM_GPIOPinWrite(LED_ROW2_RED, ((!!(playing & 0x0020)) << 0));
+			ROM_GPIOPinWrite(LED_ROW3_RED, ((!!(playing & 0x0040)) << 2));
+			ROM_GPIOPinWrite(LED_ROW4_RED, ((!!(playing & 0x0080)) << 4));
 		}
 	}
-	else if (currentRow == 1)
+	else if (ledRow == 2)
 	{
 		// Ground this line
 		ROM_GPIOPinWrite(LED_COL3_GND, 0x00);
 		if(fnOn)
 		{
 			// No super easy way to do this, gotta hardcode the shifts (or add a heap more defines)
-			ROM_GPIOPinWrite(LED_ROW1_BLUE, ((!!(pressed & 0x0100)) << 7));
-			ROM_GPIOPinWrite(LED_ROW2_BLUE, ((!!(pressed & 0x0200)) << 1));
-			ROM_GPIOPinWrite(LED_ROW3_BLUE, ((!!(pressed & 0x0400)) << 3));
-			ROM_GPIOPinWrite(LED_ROW4_BLUE, ((!!(pressed & 0x0800)) << 5));
+			ROM_GPIOPinWrite(LED_ROW1_BLUE, ((!!(playing & 0x0100)) << 7));
+			ROM_GPIOPinWrite(LED_ROW2_BLUE, ((!!(playing & 0x0200)) << 1));
+			ROM_GPIOPinWrite(LED_ROW3_BLUE, ((!!(playing & 0x0400)) << 3));
+			ROM_GPIOPinWrite(LED_ROW4_BLUE, ((!!(playing & 0x0800)) << 5));
 		}
 		else
 		{
-			ROM_GPIOPinWrite(LED_ROW1_RED, ((!!(pressed & 0x0100)) << 6));
-			ROM_GPIOPinWrite(LED_ROW2_RED, ((!!(pressed & 0x0200)) << 0));
-			ROM_GPIOPinWrite(LED_ROW3_RED, ((!!(pressed & 0x0400)) << 2));
-			ROM_GPIOPinWrite(LED_ROW4_RED, ((!!(pressed & 0x0800)) << 4));
+			ROM_GPIOPinWrite(LED_ROW1_RED, ((!!(playing & 0x0100)) << 6));
+			ROM_GPIOPinWrite(LED_ROW2_RED, ((!!(playing & 0x0200)) << 0));
+			ROM_GPIOPinWrite(LED_ROW3_RED, ((!!(playing & 0x0400)) << 2));
+			ROM_GPIOPinWrite(LED_ROW4_RED, ((!!(playing & 0x0800)) << 4));
 		}
 	}
 	else
@@ -338,19 +365,20 @@ void update_LEDs(void) {
 		if(fnOn)
 		{
 			// No super easy way to do this, gotta hardcode the shifts (or add a heap more defines)
-			ROM_GPIOPinWrite(LED_ROW1_BLUE, ((!!(pressed & 0x1000)) << 6));
-			ROM_GPIOPinWrite(LED_ROW2_BLUE, ((!!(pressed & 0x2000)) << 0));
-			ROM_GPIOPinWrite(LED_ROW3_BLUE, ((!!(pressed & 0x4000)) << 2));
-			ROM_GPIOPinWrite(LED_ROW4_BLUE, ((!!(pressed & 0x8000)) << 4));
+			ROM_GPIOPinWrite(LED_ROW1_BLUE, ((!!(playing & 0x1000)) << 6));
+			ROM_GPIOPinWrite(LED_ROW2_BLUE, ((!!(playing & 0x2000)) << 0));
+			ROM_GPIOPinWrite(LED_ROW3_BLUE, ((!!(playing & 0x4000)) << 2));
+			ROM_GPIOPinWrite(LED_ROW4_BLUE, ((!!(playing & 0x8000)) << 4));
 		}
 		else
 		{
-			ROM_GPIOPinWrite(LED_ROW1_RED, ((!!(pressed & 0x1000)) << 6));
-			ROM_GPIOPinWrite(LED_ROW2_RED, ((!!(pressed & 0x2000)) << 0));
-			ROM_GPIOPinWrite(LED_ROW3_RED, ((!!(pressed & 0x4000)) << 2));
-			ROM_GPIOPinWrite(LED_ROW4_RED, ((!!(pressed & 0x8000)) << 4));
+			ROM_GPIOPinWrite(LED_ROW1_RED, ((!!(playing & 0x1000)) << 6));
+			ROM_GPIOPinWrite(LED_ROW2_RED, ((!!(playing & 0x2000)) << 0));
+			ROM_GPIOPinWrite(LED_ROW3_RED, ((!!(playing & 0x4000)) << 2));
+			ROM_GPIOPinWrite(LED_ROW4_RED, ((!!(playing & 0x8000)) << 4));
 		}
 	}
+	ledRow = (ledRow + 1) % 4;
 }
 
 

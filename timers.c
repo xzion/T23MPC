@@ -24,10 +24,13 @@
 #include "uart.h"
 #include "sdcard.h"
 #include "dac.h"
+#include "btn.h"
 
 // Definitions
-#define TEMPO_FREQUENCY				(int)((tempo*128)/60)
+#define TEMPO_MULTIPLIER			640
+#define TEMPO_FREQUENCY				(int)((tempo*TEMPO_MULTIPLIER)/60)
 #define BUFFER_SIZE					PKT_SIZE*2
+#define POLL_FREQUENCY				10
 
 #define LED_TEMPO					GPIO_PORTF_BASE, GPIO_PIN_4
 
@@ -40,6 +43,7 @@ uint16_t * startPtr = &oBuff[0];
 uint16_t * readPtr = &oBuff[0];
 uint16_t * writePtr = &oBuff[0];
 uint8_t readPoint = 0;
+uint8_t pollCount = 0;
 
 extern uint32_t whereLastPress[16];
 extern uint16_t pressed;
@@ -60,7 +64,7 @@ uint16_t testSample = 0;
 
 
 void timers_init(void) {
-	unsigned long ulDACPeriod, ulPktPeriod, ulTempoPeriod;
+	unsigned long ulDACPeriod, ulPktPeriod, ulTempoPeriod, ulPollPeriod;
 
 	// Initialise the output buffer
 	int i;
@@ -96,7 +100,7 @@ void timers_init(void) {
 	ulPktPeriod = (ROM_SysCtlClockGet() / BUFFERUPDATE_FREQ); // 100 Hz for DAC samples
 	ROM_TimerLoadSet(TIMER1_BASE, TIMER_A, ulPktPeriod);
 	// Set up interrupt
-	ROM_IntPrioritySet(INT_TIMER1A, 0x20);
+	ROM_IntPrioritySet(INT_TIMER1A, 0x40);
 	ROM_IntEnable(INT_TIMER1A);
 	ROM_TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
 	// Enable Timer
@@ -108,11 +112,21 @@ void timers_init(void) {
 	ulTempoPeriod = (ROM_SysCtlClockGet() / TEMPO_FREQUENCY);
 	ROM_TimerLoadSet(TIMER2_BASE, TIMER_A, ulTempoPeriod);
 	// Set up interrupt
-	ROM_IntPrioritySet(INT_TIMER2A, 0x40);
+	ROM_IntPrioritySet(INT_TIMER2A, 0x20);
 	ROM_IntEnable(INT_TIMER2A);
 	ROM_TimerIntEnable(TIMER2_BASE, TIMER_TIMA_TIMEOUT);
 	// Enable Timer
 	ROM_TimerEnable(TIMER2_BASE, TIMER_A);
+
+	// Configure the poll timer
+	ulPollPeriod = (ROM_SysCtlClockGet() / POLL_FREQUENCY);
+	ROM_TimerLoadSet(TIMER2_BASE, TIMER_B, ulPollPeriod);
+	// Set up interrupt
+	ROM_IntPrioritySet(INT_TIMER2B, 0x20);
+	ROM_IntEnable(INT_TIMER2B);
+	ROM_TimerIntEnable(TIMER2_BASE, TIMER_TIMB_TIMEOUT);
+	// Enable Timer
+	ROM_TimerEnable(TIMER2_BASE, TIMER_B);
 
 }
 
@@ -147,6 +161,9 @@ void timer0_int_handler(void) {
 void timer1_int_handler(void) {
 	// Clear the interrupt flag
 	ROM_TimerIntClear(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
+
+	//btn_pollRow();
+
 
 	uint8_t doLoad = 0;
 
@@ -247,7 +264,12 @@ void timer1_int_handler(void) {
 		}
 	}
 
-
+	pollCount++;
+	if (pollCount == 9)
+	{
+		btn_pollRow();
+		pollCount = 0;
+	}
 
 
 //	// Debugging
@@ -271,7 +293,7 @@ void timer2_int_handler(void) {
 	// Clear the interrupt flag
 	ROM_TimerIntClear(TIMER2_BASE, TIMER_TIMA_TIMEOUT);
 
-	ulTempoTimestamp = (ulTempoTimestamp+1) % 128;
+	ulTempoTimestamp = (ulTempoTimestamp+1) % TEMPO_MULTIPLIER;
 
 	if (ulTempoTimestamp == 0)
 	{
@@ -280,11 +302,14 @@ void timer2_int_handler(void) {
 		ROM_GPIOPinWrite(LED_TEMPO, 0xFF);
 
 	}
-	else if (ulTempoTimestamp == 16)
+	else if (ulTempoTimestamp == (int)TEMPO_MULTIPLIER/8)
 	{
 		// TOGGLE THE TEMPO LED OFF
 		ROM_GPIOPinWrite(LED_TEMPO, 0x00);
 	}
+
+	//btn_pollRow();
+	update_LEDs();
 
 	// Debugging
 	if (g_ulTimeStamp % 100 == 0)
@@ -292,11 +317,10 @@ void timer2_int_handler(void) {
 		if (testTimer2)
 		{
 			testTimer2 = 0;
-			pressed = (1 << testSample);
-			//pressed = 0x2000;
-			testSample = (testSample+1)%16;
-			UARTprintf("Playing Sample %d\n", testSample, pressed, ulTempoTimestamp);
-			//playing = 0x00;
+//			pressed = (1 << testSample);
+//			//pressed = 0x2000;
+//			testSample = (testSample+1)%16;
+//			UARTprintf("Playing Sample %d\n", testSample, pressed, ulTempoTimestamp);
 		}
 	}
 	else
@@ -304,6 +328,4 @@ void timer2_int_handler(void) {
 		testTimer2 = 1;
 	}
 }
-
-
 

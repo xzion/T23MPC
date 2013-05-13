@@ -55,6 +55,7 @@ extern unsigned long __STACK_TOP;
 extern void timer0_int_handler(void);
 extern void timer1_int_handler(void);
 extern void timer2_int_handler(void);
+extern void timer2b_int_handler(void);
 extern void SysTickHandler(void);
 extern void UARTStdioIntHandler(void);
 extern void USB0DeviceIntHandler(void);
