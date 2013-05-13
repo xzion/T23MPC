@@ -39,7 +39,10 @@ extern volatile unsigned long g_ulTimeStamp;
 unsigned long g_ulIdleTimeout = 0;
 const char fileArr[17][7] = {"00.dat", "01.dat", "02.dat", "03.dat", "04.dat", "05.dat", "06.dat", "07.dat", "08.dat", "09.dat", "10.dat", "11.dat", "12.dat", "13.dat", "14.dat", "15.dat", "config"};
 
-uint32_t whereLast[16];
+unsigned long lastPressTs[16];
+unsigned long lastLoopTs[16];
+uint32_t whereLastPress[16];
+uint32_t whereLastLoop[16];
 uint16_t pressed;
 uint16_t playing;
 uint16_t looping;
@@ -65,7 +68,7 @@ void configure_playback(void) {
 	// Initialise pointer positions
 	for (i = 0; i < 16; i++)
 	{
-		whereLast[i] = 0;
+		whereLastPress[i] = 0;
 		//UARTprintf("%d filestring %s\n", i, &fileArr[i][0]);
 	}
 }
@@ -128,10 +131,10 @@ char sdcard_readByte(FIL * file) {
 uint8_t sdcard_readPacket(FIL * file, uint8_t buttonNumber, uint16_t * pktPtr) {
 	uint8_t fileEnded = 0;
 	int i;
-	if (whereLast[buttonNumber] < file->fsize)
+	if (whereLastPress[buttonNumber] < file->fsize)
 	{
 		// Seek to the correct position
-		FRESULT fres = f_lseek(file, whereLast[buttonNumber]);
+		FRESULT fres = f_lseek(file, whereLastPress[buttonNumber]);
 		if (fres != (FRESULT)FR_OK)
 		{
 			// FatFS error
@@ -141,7 +144,7 @@ uint8_t sdcard_readPacket(FIL * file, uint8_t buttonNumber, uint16_t * pktPtr) {
 		// Check if we can read the entire sample at once!
 		// NB: pktLen needs to be less than 512 i think?
 
-		if ((whereLast[buttonNumber] + PKT_SIZE*2) < file->fsize)
+		if ((whereLastPress[buttonNumber] + PKT_SIZE*2) < file->fsize)
 		{
 			// We can read the whole packet!
 			uint16_t bytesRead = 0;
@@ -167,7 +170,7 @@ uint8_t sdcard_readPacket(FIL * file, uint8_t buttonNumber, uint16_t * pktPtr) {
 				uint16_t readSample = readArray[2*i+1] | (readArray[2*i] << 8);
 				*pktPtr = readSample;
 				pktPtr++;
-				whereLast[buttonNumber] += 2;
+				whereLastPress[buttonNumber] += 2;
 //				if (i > PKT_SIZE-30)
 //				{
 //					UARTprintf("%d - 0x%X\n", i, readSample);
@@ -179,7 +182,7 @@ uint8_t sdcard_readPacket(FIL * file, uint8_t buttonNumber, uint16_t * pktPtr) {
 		else
 		{
 			// Only a small portion of the sample is left
-			uint32_t remainingShorts = PKT_SIZE - ((whereLast[buttonNumber] + PKT_SIZE*2) - file->fsize)/2;
+			uint32_t remainingShorts = PKT_SIZE - ((whereLastPress[buttonNumber] + PKT_SIZE*2) - file->fsize)/2;
 
 			// Read what's left
 			uint16_t bytesRead = 0;
@@ -205,14 +208,14 @@ uint8_t sdcard_readPacket(FIL * file, uint8_t buttonNumber, uint16_t * pktPtr) {
 				uint16_t readSample = readArray[2*i+1] | (readArray[2*i] << 8);
 				*pktPtr = readSample;
 				pktPtr++;
-				whereLast[buttonNumber] += 2;
+				whereLastPress[buttonNumber] += 2;
 			}
 			// Fill the rest with zeros
 			for (; i < PKT_SIZE; i++)
 			{
 				*pktPtr = 0x8000;
 				pktPtr++;
-				whereLast[buttonNumber] += 2;
+				whereLastPress[buttonNumber] += 2;
 			}
 			// Signal the the file is finished
 			fileEnded = 1;

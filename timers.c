@@ -29,6 +29,8 @@
 #define TEMPO_FREQUENCY				(int)((tempo*128)/60)
 #define BUFFER_SIZE					PKT_SIZE*2
 
+#define LED_TEMPO					GPIO_PORTF_BASE, GPIO_PIN_4
+
 // Variables
 extern volatile unsigned long g_ulTimeStamp;
 uint16_t ulTempoTimestamp = 0;
@@ -39,7 +41,7 @@ uint16_t * readPtr = &oBuff[0];
 uint16_t * writePtr = &oBuff[0];
 uint8_t readPoint = 0;
 
-extern uint32_t whereLast[16];
+extern uint32_t whereLastPress[16];
 extern uint16_t pressed;
 extern uint16_t playing;
 extern uint16_t latchHold;
@@ -69,11 +71,12 @@ void timers_init(void) {
 	// Initialise pointer positions
 	for (i = 0; i < 16; i++)
 	{
-		whereLast[i] = 0;
+		whereLastPress[i] = 0;
 	}
 
 	// Configure the Tempo LED
-
+	ROM_GPIOPinTypeGPIOOutput(LED_TEMPO);
+	ROM_GPIOPinWrite(LED_TEMPO, 0x00);
 
 	// Configure the DAC output timer - Timer 0
 	ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
@@ -201,14 +204,14 @@ void timer1_int_handler(void) {
 					sdcard_openFile(&file, i);
 					fileEnded = sdcard_readPacket(&file, i, &finalPkt[0]);
 					sdcard_closeFile(&file);
-					//UARTprintf("FILLING!, WL = %d, playing = 0x%X, fe = %d\n", whereLast[i], playing, fileEnded);
+					//UARTprintf("FILLING!, WL = %d, playing = 0x%X, fe = %d\n", whereLastPress[i], playing, fileEnded);
 					//UARTprintf("FILLING, read=%d, write=%d, ts=%d\n", (readPtr - startPtr), (writePtr - startPtr), g_ulTimeStamp);
 					if (fileEnded)
 					{
 						// File has completed playback, stop it playing next time!
 						// Should make sure this bitbashing checks out
 						playing = playing & ~bitMask;
-						whereLast[i] = 0;
+						whereLastPress[i] = 0;
 
 						// Debugging
 						//UARTprintf("File %d ended!\n", i);
@@ -273,17 +276,15 @@ void timer2_int_handler(void) {
 	if (ulTempoTimestamp == 0)
 	{
 		// TOGGLE THE TEMPO LED ON
-		UARTprintf("BEAT\n");
+		// UARTprintf("BEAT\n");
+		ROM_GPIOPinWrite(LED_TEMPO, 0xFF);
 
 	}
 	else if (ulTempoTimestamp == 16)
 	{
 		// TOGGLE THE TEMPO LED OFF
-
+		ROM_GPIOPinWrite(LED_TEMPO, 0x00);
 	}
-
-
-
 
 	// Debugging
 	if (g_ulTimeStamp % 100 == 0)
