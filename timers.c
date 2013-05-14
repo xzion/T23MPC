@@ -34,6 +34,15 @@
 
 #define LED_TEMPO					GPIO_PORTF_BASE, GPIO_PIN_4
 
+#define LOOP_1ON1					1
+#define LOOP_1ON2					2
+#define LOOP_1ON4					3
+#define LOOP_1ON8					4
+#define LOOP_1ON16					5
+#define LOOP_1ON32					6
+
+
+
 // Variables
 extern volatile unsigned long g_ulTimeStamp;
 uint16_t ulTempoTimestamp = 0;
@@ -46,10 +55,13 @@ uint8_t readPoint = 0;
 uint8_t pollCount = 0;
 
 extern uint32_t whereLastPress[16];
+extern uint32_t lastPressTs[16];
+extern uint8_t btnLoopMode[16];
 extern uint16_t pressed;
 extern uint16_t playing;
 extern uint16_t latchHold;
 extern uint16_t looping;
+extern uint16_t loopMod;
 extern uint8_t FX1mode;
 extern uint8_t FX2mode;
 extern uint8_t tempo;
@@ -162,9 +174,6 @@ void timer1_int_handler(void) {
 	// Clear the interrupt flag
 	ROM_TimerIntClear(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
 
-	//btn_pollRow();
-
-
 	uint8_t doLoad = 0;
 
 	if ((readPtr < (startPtr+PKT_SIZE)) && readPoint == 0)
@@ -182,6 +191,10 @@ void timer1_int_handler(void) {
 	if (doLoad)
 	{
 		int i;
+		uint32_t pkt1Ts = 0;
+		uint32_t pkt2Ts = 0;
+		uint32_t smallestTs = 0;
+		uint8_t pkt1Smaller = 1;
 		uint16_t pkt1[PKT_SIZE];
 		uint16_t pkt2[PKT_SIZE];
 		uint16_t finalPkt[PKT_SIZE];
@@ -202,13 +215,25 @@ void timer1_int_handler(void) {
 
 			if (!!(pressed & bitMask))
 			{
-				// Button is pressed
-				// NEED ORDER CHECK ON ALL OF THESE
-				FIL file;
-				sdcard_openFile(&file, i);
-				sdcard_readPacket(&file, i, &finalPkt[0]);
-				sdcard_closeFile(&file);
-				playing = playing | bitMask;
+				// Button is pressed, check priority
+				if (lastPressTs[i] > smallestTs)
+				{
+					FIL file;
+					sdcard_openFile(&file, i);
+					if (pkt1Smaller)
+					{
+						sdcard_readPacket(&file, i, &pkt1[0]);
+						pkt1Ts = lastPressTs[i];
+					}
+					else
+					{
+						sdcard_readPacket(&file, i, &pkt2[0]);
+						pkt2Ts = lastPressTs[i];
+					}
+					sdcard_closeFile(&file);
+					playing = playing | bitMask;
+				}
+
 				//UARTprintf("READING!, playing = 0x%X\n", playing);
 			}
 			else
@@ -217,38 +242,53 @@ void timer1_int_handler(void) {
 				if (!!(playing & bitMask) && !!(latchHold & bitMask))
 				{
 					// File is latched, need to finish playback
-					FIL file;
-					sdcard_openFile(&file, i);
-					fileEnded = sdcard_readPacket(&file, i, &finalPkt[0]);
-					sdcard_closeFile(&file);
-					//UARTprintf("FILLING!, WL = %d, playing = 0x%X, fe = %d\n", whereLastPress[i], playing, fileEnded);
-					//UARTprintf("FILLING, read=%d, write=%d, ts=%d\n", (readPtr - startPtr), (writePtr - startPtr), g_ulTimeStamp);
+					if (lastPressTs[i] > smallestTs)
+					{
+						FIL file;
+						sdcard_openFile(&file, i);
+						if (pkt1Smaller)
+						{
+							fileEnded = sdcard_readPacket(&file, i, &pkt1[0]);
+							pkt1Ts = lastPressTs[i];
+						}
+						else
+						{
+							fileEnded = sdcard_readPacket(&file, i, &pkt2[0]);
+							pkt2Ts = lastPressTs[i];
+						}
+						sdcard_closeFile(&file);
+					}
+
 					if (fileEnded)
 					{
 						// File has completed playback, stop it playing next time!
-						// Should make sure this bitbashing checks out
 						playing = playing & ~bitMask;
 						whereLastPress[i] = 0;
-
-						// Debugging
-						//UARTprintf("File %d ended!\n", i);
-
-					}
-					else
-					{
-						playing = playing | bitMask;
 					}
 				}
 				else
 				{
-					// It's not playing
+					// It's not/shouldn't be playing
 					playing = playing & ~bitMask;
 				}
 			}
+
+			// Update the packet order here
+			if (pkt2Ts > pkt1Ts)
+			{
+				pkt1Smaller = 1;
+				smallestTs = pkt1Ts;
+			}
+			else
+			{
+				pkt1Smaller = 0;
+				smallestTs = pkt2Ts;
+			}
+
 		}
 
 		// DEBUGGING - unpress first button
-		pressed = 0x00;
+		//pressed = 0x00;
 		//playing = 0x00;
 
 
@@ -256,14 +296,36 @@ void timer1_int_handler(void) {
 		// Need to apply convolution, then FX
 		// NOT DONE YET, OBVIOUSLY. ONLY HAVE 1 PKT AT THE MOMENT
 
-		// Load into the buffer
+		// Convolve
 		for (i = 0; i < PKT_SIZE; i++)
 		{
-			*writePtr = finalPkt[i];
+			if (pkt1[i] != 0 && pkt2[i] != 0)
+			{
+				finalPkt[i] = (int)((pkt1[i] + pkt2[i])/2);
+			}
+			else if (pkt1[i] != 0)
+			{
+				finalPkt[i] = pkt1[i];
+			}
+			else if (pkt2[i] != 0)
+			{
+				finalPkt[i] = pkt2[i];
+			}
+		}
+
+		// DSP GOES HERE!!
+
+
+		// Load into the buffer
+		// CHANGE THIS TO CONVOLVED SIGNAL WHEN WE'RE HAPPY EVERYTHING IS WORKING
+		for (i = 0; i < PKT_SIZE; i++)
+		{
+			*writePtr = pkt1[i];
 			writePtr++;
 		}
 	}
 
+	// Polling buttons! Needs fine tuning on the timing. fucking bouncing.
 	pollCount++;
 	if (pollCount == 9)
 	{
@@ -290,42 +352,77 @@ void timer1_int_handler(void) {
 }
 
 void timer2_int_handler(void) {
+	uint8_t loopFlags = 0xFF;
+	int i;
 	// Clear the interrupt flag
 	ROM_TimerIntClear(TIMER2_BASE, TIMER_TIMA_TIMEOUT);
 
+	// Increment the counter
 	ulTempoTimestamp = (ulTempoTimestamp+1) % TEMPO_MULTIPLIER;
 
+	// Check looping conditions (and blink the tempo LED)
 	if (ulTempoTimestamp == 0)
 	{
+		// All possible loop intervals fire
+		loopFlags = LOOP_1ON1;
+
 		// TOGGLE THE TEMPO LED ON
-		// UARTprintf("BEAT\n");
 		ROM_GPIOPinWrite(LED_TEMPO, 0xFF);
 
 	}
-	else if (ulTempoTimestamp == (int)TEMPO_MULTIPLIER/8)
+	else if (ulTempoTimestamp % TEMPO_MULTIPLIER/2 == 0)
 	{
+		loopFlags = LOOP_1ON2;
+	}
+	else if (ulTempoTimestamp % TEMPO_MULTIPLIER/4 == 0)
+	{
+		loopFlags = LOOP_1ON4;
+	}
+	else if (ulTempoTimestamp % TEMPO_MULTIPLIER/8 == 0)
+	{
+		loopFlags = LOOP_1ON8;
+
 		// TOGGLE THE TEMPO LED OFF
 		ROM_GPIOPinWrite(LED_TEMPO, 0x00);
 	}
-
-	//btn_pollRow();
-	update_LEDs();
-
-	// Debugging
-	if (g_ulTimeStamp % 100 == 0)
+	else if (ulTempoTimestamp % TEMPO_MULTIPLIER/16 == 0)
 	{
-		if (testTimer2)
+		loopFlags = LOOP_1ON16;
+	}
+	else if (ulTempoTimestamp % TEMPO_MULTIPLIER/32 == 0)
+	{
+		loopFlags = LOOP_1ON32;
+	}
+
+	// Update looping tracks
+	for (i = 0; i < 16; i++)
+	{
+		if (!!(looping & (1 << i)) && btnLoopMode[i] >= loopFlags)
 		{
-			testTimer2 = 0;
-//			pressed = (1 << testSample);
-//			//pressed = 0x2000;
-//			testSample = (testSample+1)%16;
-//			UARTprintf("Playing Sample %d\n", testSample, pressed, ulTempoTimestamp);
+			// Track is looping
+			whereLastPress[i] = 0;
+			pressed &= (1 << i);
 		}
 	}
-	else
-	{
-		testTimer2 = 1;
-	}
+
+	// Update the LED array
+	update_LEDs();
+
+//	// Debugging
+//	if (g_ulTimeStamp % 100 == 0)
+//	{
+//		if (testTimer2)
+//		{
+//			testTimer2 = 0;
+////			pressed = (1 << testSample);
+////			//pressed = 0x2000;
+////			testSample = (testSample+1)%16;
+////			UARTprintf("Playing Sample %d\n", testSample, pressed, ulTempoTimestamp);
+//		}
+//	}
+//	else
+//	{
+//		testTimer2 = 1;
+//	}
 }
 

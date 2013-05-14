@@ -39,10 +39,10 @@ extern volatile unsigned long g_ulTimeStamp;
 unsigned long g_ulIdleTimeout = 0;
 const char fileArr[17][7] = {"00.dat", "01.dat", "02.dat", "03.dat", "04.dat", "05.dat", "06.dat", "07.dat", "08.dat", "09.dat", "10.dat", "11.dat", "12.dat", "13.dat", "14.dat", "15.dat", "config"};
 
-unsigned long lastPressTs[16];
-unsigned long lastLoopTs[16];
+uint32_t lastPressTs[16];
 uint32_t whereLastPress[16];
-uint32_t whereLastLoop[16];
+uint8_t btnLoopMode[16];
+uint16_t loopMod;
 uint16_t pressed;
 uint16_t playing;
 uint16_t looping;
@@ -64,11 +64,13 @@ void configure_playback(void) {
 	FX1mode = 0x00;
 	FX2mode = 0x01;
 	tempo = 0x80;
+	loopMod = 0xFFFF;
 
 	// Initialise pointer positions
 	for (i = 0; i < 16; i++)
 	{
 		whereLastPress[i] = 0;
+		btnLoopMode[i] = 0x01;
 		//UARTprintf("%d filestring %s\n", i, &fileArr[i][0]);
 	}
 }
@@ -213,7 +215,8 @@ uint8_t sdcard_readPacket(FIL * file, uint8_t buttonNumber, uint16_t * pktPtr) {
 			// Fill the rest with zeros
 			for (; i < PKT_SIZE; i++)
 			{
-				*pktPtr = 0x8000;
+				*pktPtr = 0x0000;
+				//*pktPtr = 0x8000;
 				pktPtr++;
 				whereLastPress[buttonNumber] += 2;
 			}

@@ -5,8 +5,6 @@
  *      Author: Coen
  */
 
-
-
 // Library Includes
 #include "inc/hw_types.h"
 #include "inc/hw_memmap.h"
@@ -24,7 +22,7 @@
 #include "uart.h"
 
 // Definitions
-#define BTN_ROW1_RD			GPIO_PORTE_BASE, GPIO_PIN_0
+#define BTN_ROW1_RD			GPIO_PORTE_BASE, GPIO_PIN_0 // This is not as listed on the DOC, PD0 doesn't work though.
 #define BTN_ROW2_RD			GPIO_PORTD_BASE, GPIO_PIN_1
 #define BTN_ROW3_RD			GPIO_PORTD_BASE, GPIO_PIN_2
 #define BTN_ROW4_RD			GPIO_PORTD_BASE, GPIO_PIN_3
@@ -55,6 +53,10 @@
 // Variables
 extern uint16_t pressed;
 extern uint16_t playing;
+extern uint16_t looping;
+extern uint16_t loopMod;
+extern uint32_t lastPressTs[16];
+extern volatile unsigned long g_ulTimeStamp;
 uint8_t currentRow;
 uint8_t ledRow;
 uint8_t bounceStatus[4][4];
@@ -155,24 +157,22 @@ void btn_pollRow(void) {
 			// Shift the debounced value into pressed
 			uint8_t pinStatus = debounce(i, btnRd[i]);
 			pressed = (pressed & ~(1 << i)) | (pinStatus << i);
-			if (loopOn && pinStatus)
+			if (loopOn && pinStatus && !!(loopMod & (1 << i)))
 			{
-				if (!!(pressed & (1 << i)))
+				if (!!(looping & (1 << i)))
 				{
-					pressed &= ~(1 << i);
+					looping &= ~(1 << i);
+					UARTprintf("LOOPING OFF row: %d, col: %d\n", currentRow, i);
 				}
 				else
 				{
-					pressed &= (1 << i);
+					looping &= (1 << i);
+					UARTprintf("LOOPING ON row: %d, col: %d\n", currentRow, i);
 				}
-			}
-			if (pinStatus)
-			{
-				UARTprintf("PRESSED row: %d, col: %d\n", currentRow, i);
+				loopMod &= ~(1 << i);
 			}
 		}
 
-		//update_LEDs();
 		currentRow++;
 		ROM_GPIOPinWrite(BTN_COL1_IN, 0x00);
 		ROM_GPIOPinWrite(BTN_COL2_IN, 0xFF);
@@ -184,24 +184,22 @@ void btn_pollRow(void) {
 			// Shift the debounced value into pressed
 			uint8_t pinStatus = debounce(i, btnRd[i]);
 			pressed = (pressed & ~(1 << i+4)) | (pinStatus << i+4);
-			if (loopOn && pinStatus)
+			if (loopOn && pinStatus && !!(loopMod & (1 << i+4)))
 			{
-				if (!!(pressed & (1 << i+4)))
+				if (!!(looping & (1 << i+4)))
 				{
-					pressed &= ~(1 << i+4);
+					looping &= ~(1 << i+4);
+					UARTprintf("LOOPING OFF row: %d, col: %d\n", currentRow, i);
 				}
 				else
 				{
-					pressed &= (1 << i+4);
+					looping &= (1 << i+4);
+					UARTprintf("LOOPING ON row: %d, col: %d\n", currentRow, i);
 				}
-			}
-			if (pinStatus)
-			{
-				UARTprintf("PRESSED row: %d, col: %d\n", currentRow, i);
+				loopMod &= ~(1 << i+4);
 			}
 		}
 
-		//update_LEDs();
 		currentRow++;
 		ROM_GPIOPinWrite(BTN_COL2_IN, 0x00);
 		ROM_GPIOPinWrite(BTN_COL3_IN, 0xFF);
@@ -213,24 +211,22 @@ void btn_pollRow(void) {
 			// Shift the debounced value into pressed
 			uint8_t pinStatus = debounce(i, btnRd[i]);
 			pressed = (pressed & ~(1 << i+8)) | (pinStatus << i+8);
-			if (loopOn && pinStatus)
+			if (loopOn && pinStatus && !!(loopMod & (1 << i+8)))
 			{
-				if (!!(pressed & (1 << i+8)))
+				if (!!(looping & (1 << i+8)))
 				{
-					pressed &= ~(1 << i+8);
+					looping &= ~(1 << i+8);
+					UARTprintf("LOOPING OFF row: %d, col: %d\n", currentRow, i);
 				}
 				else
 				{
-					pressed &= (1 << i+8);
+					looping &= (1 << i+8);
+					UARTprintf("LOOPING ON row: %d, col: %d\n", currentRow, i);
 				}
-			}
-			if (pinStatus)
-			{
-				UARTprintf("PRESSED row: %d, col: %d\n", currentRow, i);
+				loopMod &= ~(1 << i+8);
 			}
 		}
 
-		//update_LEDs();
 		currentRow++;
 		ROM_GPIOPinWrite(BTN_COL3_IN, 0x00);
 		ROM_GPIOPinWrite(BTN_COL4_IN, 0xFF);
@@ -242,24 +238,22 @@ void btn_pollRow(void) {
 			// Shift the debounced value into pressed
 			uint8_t pinStatus = debounce(i, btnRd[i]);
 			pressed = (pressed & ~(1 << i+12)) | (pinStatus << i+12);
-			if (loopOn && pinStatus)
+			if (loopOn && pinStatus && !!(loopMod & (1 << i+12)))
 			{
-				if (!!(pressed & (1 << i+12)))
+				if (!!(looping & (1 << i+12)))
 				{
-					pressed &= ~(1 << i+12);
+					looping &= ~(1 << i+12);
+					UARTprintf("LOOPING OFF row: %d, col: %d\n", currentRow, i);
 				}
 				else
 				{
-					pressed &= (1 << i+12);
+					looping &= (1 << i+12);
+					UARTprintf("LOOPING ON row: %d, col: %d\n", currentRow, i);
 				}
-			}
-			if (pinStatus)
-			{
-				UARTprintf("PRESSED row: %d, col: %d\n", currentRow, i);
+				loopMod &= ~(1 << i+12);
 			}
 		}
 
-		//update_LEDs();
 		currentRow = 0;
 		ROM_GPIOPinWrite(BTN_COL4_IN, 0x00);
 		ROM_GPIOPinWrite(BTN_COL1_IN, 0xFF);
@@ -267,18 +261,34 @@ void btn_pollRow(void) {
 }
 
 uint8_t debounce(uint8_t btnNum, uint8_t rawInput) {
-	bounceStatus[currentRow][btnNum] = (bounceStatus[currentRow][btnNum] << 1) | rawInput;
+//	// Bitshifting left, requires one bit high
+//	bounceStatus[currentRow][btnNum] = (bounceStatus[currentRow][btnNum] << 1) | rawInput;
+//	if(rawInput)
+//	{
+//		UARTprintf("SOMETHING IS HIGH %d %d\n", currentRow, btnNum);
+//	}
+//
+//	if (bounceStatus[currentRow][btnNum] == 0x00)
+//	{
+//		return 0;
+//	}
+//	return 1;
 
+	// Bitshifting right, requires 2 high
+	bounceStatus[currentRow][btnNum] = (bounceStatus[currentRow][btnNum] >> 1) | (rawInput << 7);
 	if(rawInput)
 	{
 		UARTprintf("SOMETHING IS HIGH %d %d\n", currentRow, btnNum);
 	}
 
-	if (bounceStatus[currentRow][btnNum] == 0x00)
+	if (bounceStatus[currentRow][btnNum] > 0x80)
 	{
-		return 0;
+		UARTprintf("PRESSED row: %d, col: %d\n", currentRow, btnNum);
+		// Set last press status!
+		lastPressTs[currentRow*4+btnNum] = g_ulTimeStamp;
+		return 1;
 	}
-	return 1;
+	return 0;
 }
 
 void update_LEDs(void) {
