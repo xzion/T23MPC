@@ -59,7 +59,7 @@ void configure_playback(void) {
 	// Nothing here yet
 	pressed = 0x0000; // FIRST BUTTON PRESSED, FOR DEBUGGING
 	playing = 0x0000;
-	latchHold = 0xFFFF;
+	latchHold = 0xFF00;
 	looping = 0x0000;
 	FX1mode = 0x00;
 	FX2mode = 0x01;
@@ -70,7 +70,7 @@ void configure_playback(void) {
 	for (i = 0; i < 16; i++)
 	{
 		whereLastPress[i] = 0;
-		btnLoopMode[i] = 0x01;
+		btnLoopMode[i] = 1;
 		//UARTprintf("%d filestring %s\n", i, &fileArr[i][0]);
 	}
 }
@@ -111,6 +111,16 @@ void sdcard_openFile(FIL * file, int ID) {
 
 }
 
+void sdcard_resetFile(FIL * file) {
+	FRESULT fres = f_lseek(file, 0);
+
+	if (fres != (FRESULT)FR_OK) {
+		UARTprintf("f_lseek result: %d\r\n", fres);
+	}
+
+}
+
+
 char sdcard_readByte(FIL * file) {
 	char retChar;
 	uint16_t bytesRead = 0;
@@ -136,12 +146,12 @@ uint8_t sdcard_readPacket(FIL * file, uint8_t buttonNumber, uint16_t * pktPtr) {
 	if (whereLastPress[buttonNumber] < file->fsize)
 	{
 		// Seek to the correct position
-		FRESULT fres = f_lseek(file, whereLastPress[buttonNumber]);
-		if (fres != (FRESULT)FR_OK)
-		{
-			// FatFS error
-			UARTprintf("f_lseek result: %d\r\n", fres);
-		}
+//		FRESULT fres = f_lseek(file, whereLastPress[buttonNumber]);
+//		if (fres != (FRESULT)FR_OK)
+//		{
+//			// FatFS error
+//			UARTprintf("f_lseek result: %d\r\n", fres);
+//		}
 
 		// Check if we can read the entire sample at once!
 		// NB: pktLen needs to be less than 512 i think?

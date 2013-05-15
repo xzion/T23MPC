@@ -97,6 +97,12 @@ void btn_init(void) {
 	ROM_GPIOPinTypeGPIOOutput(LED_COL3_GND);
 	ROM_GPIOPinTypeGPIOOutput(LED_COL4_GND);
 
+	// Set Button inputs to pulldown resistors
+	ROM_GPIOPadConfigSet(BTN_ROW1_RD, GPIO_STRENGTH_8MA, GPIO_PIN_TYPE_STD_WPD);
+	ROM_GPIOPadConfigSet(BTN_ROW2_RD, GPIO_STRENGTH_8MA, GPIO_PIN_TYPE_STD_WPD);
+	ROM_GPIOPadConfigSet(BTN_ROW3_RD, GPIO_STRENGTH_8MA, GPIO_PIN_TYPE_STD_WPD);
+	ROM_GPIOPadConfigSet(BTN_ROW4_RD, GPIO_STRENGTH_8MA, GPIO_PIN_TYPE_STD_WPD);
+
 	// Initialise output pins to 0, LED grounds to 1
 	ROM_GPIOPinWrite(BTN_COL1_IN, 0x00);
 	ROM_GPIOPinWrite(BTN_COL2_IN, 0x00);
@@ -166,10 +172,10 @@ void btn_pollRow(void) {
 				}
 				else
 				{
-					looping &= (1 << i);
+					looping |= (1 << i);
 					UARTprintf("LOOPING ON row: %d, col: %d\n", currentRow, i);
+					loopMod &= ~(1 << i);
 				}
-				loopMod &= ~(1 << i);
 			}
 		}
 
@@ -193,10 +199,10 @@ void btn_pollRow(void) {
 				}
 				else
 				{
-					looping &= (1 << i+4);
+					looping |= (1 << i+4);
 					UARTprintf("LOOPING ON row: %d, col: %d\n", currentRow, i);
+					loopMod &= ~(1 << i+4);
 				}
-				loopMod &= ~(1 << i+4);
 			}
 		}
 
@@ -220,10 +226,10 @@ void btn_pollRow(void) {
 				}
 				else
 				{
-					looping &= (1 << i+8);
+					looping |= (1 << i+8);
 					UARTprintf("LOOPING ON row: %d, col: %d\n", currentRow, i);
+					loopMod &= ~(1 << i+8);
 				}
-				loopMod &= ~(1 << i+8);
 			}
 		}
 
@@ -247,10 +253,10 @@ void btn_pollRow(void) {
 				}
 				else
 				{
-					looping &= (1 << i+12);
+					looping |= (1 << i+12);
 					UARTprintf("LOOPING ON row: %d, col: %d\n", currentRow, i);
+					loopMod &= ~(1 << i+12);
 				}
-				loopMod &= ~(1 << i+12);
 			}
 		}
 
@@ -261,6 +267,16 @@ void btn_pollRow(void) {
 }
 
 uint8_t debounce(uint8_t btnNum, uint8_t rawInput) {
+	// RAW
+	if(rawInput)
+	{
+		UARTprintf("SOMETHING IS HIGH %d %d\n", currentRow, btnNum);
+		lastPressTs[currentRow*4+btnNum] = g_ulTimeStamp;
+		return 1;
+	}
+	return 0;
+
+
 //	// Bitshifting left, requires one bit high
 //	bounceStatus[currentRow][btnNum] = (bounceStatus[currentRow][btnNum] << 1) | rawInput;
 //	if(rawInput)
@@ -272,23 +288,26 @@ uint8_t debounce(uint8_t btnNum, uint8_t rawInput) {
 //	{
 //		return 0;
 //	}
+//	//UARTprintf("PRESSED row: %d, col: %d\n", currentRow, btnNum);
+//	// Set last press status!
+//	lastPressTs[currentRow*4+btnNum] = g_ulTimeStamp;
 //	return 1;
 
-	// Bitshifting right, requires 2 high
-	bounceStatus[currentRow][btnNum] = (bounceStatus[currentRow][btnNum] >> 1) | (rawInput << 7);
-	if(rawInput)
-	{
-		UARTprintf("SOMETHING IS HIGH %d %d\n", currentRow, btnNum);
-	}
-
-	if (bounceStatus[currentRow][btnNum] > 0x80)
-	{
-		UARTprintf("PRESSED row: %d, col: %d\n", currentRow, btnNum);
-		// Set last press status!
-		lastPressTs[currentRow*4+btnNum] = g_ulTimeStamp;
-		return 1;
-	}
-	return 0;
+//	// Bitshifting right, requires 2 high
+//	bounceStatus[currentRow][btnNum] = (bounceStatus[currentRow][btnNum] >> 1) | (rawInput << 7);
+//	if(rawInput)
+//	{
+//		UARTprintf("SOMETHING IS HIGH %d %d\n", currentRow, btnNum);
+//	}
+//
+//	if (bounceStatus[currentRow][btnNum] > 0x80)
+//	{
+////		UARTprintf("PRESSED row: %d, col: %d\n", currentRow, btnNum);
+//		// Set last press status!
+//		lastPressTs[currentRow*4+btnNum] = g_ulTimeStamp;
+//		return 1;
+//	}
+//	return 0;
 }
 
 void update_LEDs(void) {

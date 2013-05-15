@@ -21,6 +21,7 @@
 extern void configure_playback(void);
 extern void sdcard_init(void);
 extern void sdcard_openFile(FIL * file, int ID);
+extern void sdcard_resetFile(FIL * file);
 extern char sdcard_readByte(FIL * file);
 extern uint8_t sdcard_readPacket(FIL * file, uint8_t buttonNumber, uint16_t * pktPtr);
 extern void sdcard_closeFile(FIL * file);

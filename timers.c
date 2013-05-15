@@ -44,6 +44,8 @@
 
 
 // Variables
+FIL fPtrs[16];
+
 extern volatile unsigned long g_ulTimeStamp;
 uint16_t ulTempoTimestamp = 0;
 
@@ -84,10 +86,11 @@ void timers_init(void) {
 	{
 		oBuff[i] = 0x8000;
 	}
-	// Initialise pointer positions
+
+	// Open file pointers
 	for (i = 0; i < 16; i++)
 	{
-		whereLastPress[i] = 0;
+		sdcard_openFile(&fPtrs[i], i);
 	}
 
 	// Configure the Tempo LED
@@ -202,8 +205,8 @@ void timer1_int_handler(void) {
 		// Initialise output packets
 		for (i = 0; i < PKT_SIZE; i++)
 		{
-			pkt1[i] = 0x8000;
-			pkt2[i] = 0x8000;
+			pkt1[i] = 0x0000;
+			pkt2[i] = 0x0000;
 			finalPkt[i] = 0x8000;
 		}
 
@@ -218,20 +221,38 @@ void timer1_int_handler(void) {
 				// Button is pressed, check priority
 				if (lastPressTs[i] > smallestTs)
 				{
-					FIL file;
-					sdcard_openFile(&file, i);
+//					FIL file;
+//					sdcard_openFile(&file, i);
+//					if (pkt1Smaller)
+//					{
+//						//UARTprintf("PKT1 loaded, 0x%x\n", pressed);
+//						sdcard_readPacket(&file, i, &pkt1[0]);
+//						pkt1Ts = lastPressTs[i];
+//					}
+//					else
+//					{
+//						//UARTprintf("PKT2 loaded, 0x%x\n", pressed);
+//						sdcard_readPacket(&file, i, &pkt2[0]);
+//						pkt2Ts = lastPressTs[i];
+//					}
+//					sdcard_closeFile(&file);
+//					playing = playing | bitMask;
+
 					if (pkt1Smaller)
 					{
-						sdcard_readPacket(&file, i, &pkt1[0]);
+						//UARTprintf("PKT1 loaded, 0x%x\n", pressed);
+						sdcard_readPacket(&fPtrs[i], i, &pkt1[0]);
 						pkt1Ts = lastPressTs[i];
 					}
 					else
 					{
-						sdcard_readPacket(&file, i, &pkt2[0]);
+						//UARTprintf("PKT2 loaded, 0x%x\n", pressed);
+						sdcard_readPacket(&fPtrs[i], i, &pkt2[0]);
 						pkt2Ts = lastPressTs[i];
 					}
-					sdcard_closeFile(&file);
 					playing = playing | bitMask;
+
+
 				}
 
 				//UARTprintf("READING!, playing = 0x%X\n", playing);
@@ -244,32 +265,48 @@ void timer1_int_handler(void) {
 					// File is latched, need to finish playback
 					if (lastPressTs[i] > smallestTs)
 					{
-						FIL file;
-						sdcard_openFile(&file, i);
+//						FIL file;
+//						sdcard_openFile(&file, i);
+//						if (pkt1Smaller)
+//						{
+//							fileEnded = sdcard_readPacket(&file, i, &pkt1[0]);
+//							pkt1Ts = lastPressTs[i];
+//						}
+//						else
+//						{
+//							fileEnded = sdcard_readPacket(&file, i, &pkt2[0]);
+//							pkt2Ts = lastPressTs[i];
+//						}
+//						sdcard_closeFile(&file);
+
 						if (pkt1Smaller)
 						{
-							fileEnded = sdcard_readPacket(&file, i, &pkt1[0]);
+							fileEnded = sdcard_readPacket(&fPtrs[i], i, &pkt1[0]);
 							pkt1Ts = lastPressTs[i];
 						}
 						else
 						{
-							fileEnded = sdcard_readPacket(&file, i, &pkt2[0]);
+							fileEnded = sdcard_readPacket(&fPtrs[i], i, &pkt2[0]);
 							pkt2Ts = lastPressTs[i];
 						}
-						sdcard_closeFile(&file);
+
 					}
 
 					if (fileEnded)
 					{
 						// File has completed playback, stop it playing next time!
+						UARTprintf("finished playing sample %d\n", i);
 						playing = playing & ~bitMask;
 						whereLastPress[i] = 0;
+						sdcard_resetFile(&fPtrs[i]);
 					}
 				}
 				else
 				{
 					// It's not/shouldn't be playing
 					playing = playing & ~bitMask;
+					sdcard_resetFile(&fPtrs[i]);
+					whereLastPress[i] = 0;
 				}
 			}
 
@@ -320,14 +357,14 @@ void timer1_int_handler(void) {
 		// CHANGE THIS TO CONVOLVED SIGNAL WHEN WE'RE HAPPY EVERYTHING IS WORKING
 		for (i = 0; i < PKT_SIZE; i++)
 		{
-			*writePtr = pkt1[i];
+			*writePtr = finalPkt[i];
 			writePtr++;
 		}
 	}
 
 	// Polling buttons! Needs fine tuning on the timing. fucking bouncing.
 	pollCount++;
-	if (pollCount == 9)
+	if (pollCount == 5)
 	{
 		btn_pollRow();
 		pollCount = 0;
@@ -400,8 +437,11 @@ void timer2_int_handler(void) {
 		if (!!(looping & (1 << i)) && btnLoopMode[i] >= loopFlags)
 		{
 			// Track is looping
+			UARTprintf("Looping track %d\n", i);
 			whereLastPress[i] = 0;
-			pressed &= (1 << i);
+			sdcard_resetFile(&fPtrs[i]);
+			pressed |= (1 << i);
+			loopMod |= (1 << i);
 		}
 	}
 
