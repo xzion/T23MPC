@@ -25,6 +25,7 @@
 #include "sdcard.h"
 #include "dac.h"
 #include "btn.h"
+#include "fx.h"
 
 // Definitions
 #define TEMPO_MULTIPLIER			640
@@ -32,7 +33,8 @@
 #define BUFFER_SIZE					PKT_SIZE*2
 #define POLL_FREQUENCY				10
 
-#define LED_TEMPO					GPIO_PORTF_BASE, GPIO_PIN_4
+//#define LED_TEMPO					GPIO_PORTF_BASE, GPIO_PIN_4
+#define LED_TEMPO					GPIO_PORTD_BASE, GPIO_PIN_0
 
 #define LOOP_1ON1					1
 #define LOOP_1ON2					2
@@ -40,7 +42,6 @@
 #define LOOP_1ON8					4
 #define LOOP_1ON16					5
 #define LOOP_1ON32					6
-
 
 
 // Variables
@@ -324,10 +325,6 @@ void timer1_int_handler(void) {
 
 		}
 
-		// DEBUGGING - unpress first button
-		//pressed = 0x00;
-		//playing = 0x00;
-
 
 		// At this point, we have 2 arrays of the most up to date audio streams
 		// Need to apply convolution, then FX
@@ -351,7 +348,7 @@ void timer1_int_handler(void) {
 		}
 
 		// DSP GOES HERE!!
-
+		fx_apply(&finalPkt[0]);
 
 		// Load into the buffer
 		// CHANGE THIS TO CONVOLVED SIGNAL WHEN WE'RE HAPPY EVERYTHING IS WORKING

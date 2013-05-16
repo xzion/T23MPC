@@ -22,7 +22,8 @@
 #include "uart.h"
 
 // Definitions
-#define BTN_ROW1_RD			GPIO_PORTE_BASE, GPIO_PIN_0 // This is not as listed on the DOC, PD0 doesn't work though.
+//#define BTN_ROW1_RD			GPIO_PORTE_BASE, GPIO_PIN_0 // This is not as listed on the DOC, PD0 doesn't work though.
+#define BTN_ROW1_RD			GPIO_PORTF_BASE, GPIO_PIN_4
 #define BTN_ROW2_RD			GPIO_PORTD_BASE, GPIO_PIN_1
 #define BTN_ROW3_RD			GPIO_PORTD_BASE, GPIO_PIN_2
 #define BTN_ROW4_RD			GPIO_PORTD_BASE, GPIO_PIN_3
@@ -102,6 +103,8 @@ void btn_init(void) {
 	ROM_GPIOPadConfigSet(BTN_ROW2_RD, GPIO_STRENGTH_8MA, GPIO_PIN_TYPE_STD_WPD);
 	ROM_GPIOPadConfigSet(BTN_ROW3_RD, GPIO_STRENGTH_8MA, GPIO_PIN_TYPE_STD_WPD);
 	ROM_GPIOPadConfigSet(BTN_ROW4_RD, GPIO_STRENGTH_8MA, GPIO_PIN_TYPE_STD_WPD);
+	ROM_GPIOPadConfigSet(BTN_LOOP, GPIO_STRENGTH_8MA, GPIO_PIN_TYPE_STD_WPD);
+	ROM_GPIOPadConfigSet(BTN_FN, GPIO_STRENGTH_8MA, GPIO_PIN_TYPE_STD_WPD);
 
 	// Initialise output pins to 0, LED grounds to 1
 	ROM_GPIOPinWrite(BTN_COL1_IN, 0x00);

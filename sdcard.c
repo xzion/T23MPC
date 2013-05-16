@@ -56,23 +56,38 @@ uint8_t tempo;
 
 void configure_playback(void) {
 	int i;
-	// Nothing here yet
-	pressed = 0x0000; // FIRST BUTTON PRESSED, FOR DEBUGGING
-	playing = 0x0000;
-	latchHold = 0xFF00;
-	looping = 0x0000;
+	// Defaults, just in case read fails
 	FX1mode = 0x00;
 	FX2mode = 0x01;
 	tempo = 0x80;
+	latchHold = 0xFFFF;
+
+
+	// Misc initialisation
+	pressed = 0x0000;
+	playing = 0x0000;
+	looping = 0x0000;
 	loopMod = 0xFFFF;
 
-	// Initialise pointer positions
+	// Retrieve values from config file
+	FIL cfgFile;
+	sdcard_openFile(&cfgFile, 16);
+	FX1mode = sdcard_readByte(&cfgFile);
+	FX2mode = sdcard_readByte(&cfgFile);
+	tempo = sdcard_readByte(&cfgFile);
+
 	for (i = 0; i < 16; i++)
 	{
+		// Shift in the latch/hold bit
+		uint8_t lhBit = sdcard_readByte(&cfgFile);
+		latchHold |= ((!!lhBit) << i);
+		// Read the loop mode bit
+		btnLoopMode[i] = sdcard_readByte(&cfgFile);
+		// Set position ptr to 0
 		whereLastPress[i] = 0;
-		btnLoopMode[i] = 1;
-		//UARTprintf("%d filestring %s\n", i, &fileArr[i][0]);
 	}
+	sdcard_closeFile(&cfgFile);
+
 }
 
 /* Init_sdcard

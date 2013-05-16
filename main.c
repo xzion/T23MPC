@@ -24,6 +24,8 @@
 #include "uart.h"
 #include "dac.h"
 #include "btn.h"
+#include "fx.h"
+#include "adc.h"
 
 // Definitions
 
@@ -89,12 +91,16 @@ void main(void) {
 	// Initialise Buttons
 	btn_init();
 
+	// Initialise FX
+	fx_init();
+
 	// Initialise ADC
+	adc_init();
 
 	// Initialise DAC
 	dac_init();
 
-	// Initialise SD Card
+	// Initialise SD Card and Mass storage
 	sdcard_init();
 
 	// Initialise UART for debugging

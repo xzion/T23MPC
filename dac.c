@@ -23,7 +23,7 @@
 #include "dac.h"
 
 void dac_init(void) {
-	// Enable SSI0 for the SD Card
+	// Enable SSI2 for the DAC
 	ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI2);
 	// Configure Pins
 	ROM_GPIOPinConfigure(GPIO_PB4_SSI2CLK);

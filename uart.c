@@ -25,6 +25,6 @@ void uart_init(void) {
 	ROM_GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
 	UARTStdioInit(0);
 
-	UARTprintf("%c******* Loaded ********\n", 0x0C);
+	UARTprintf("%c-------- Loaded --------\n", 0x0C);
 }
 
